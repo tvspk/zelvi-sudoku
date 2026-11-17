@@ -1385,12 +1385,16 @@ const SYT={
   setupP:'Enter the token for the mailbox (it starts with github_pat_) and the name of the private repository.',tokenL:'Token',repoL:'Repository',
   connect:'Connect',checking:'Checking…',cancel:'Cancel',close:'Close',ok:'Continue',
   newCodeP:'This is the pairing code for all devices. Write down these 8 words (ideally in a password manager). You will enter them on the other devices.',saved:'I have written them down',
-  askCodeP:'The mailbox is already set up. Enter the 8 words of the pairing code from the first device.',codeL:'8 words',codeBad:'The code doesn’t match. Check all 8 words.',
+  askCodeP:'The mailbox is already set up. Enter the 8 words of the pairing code from the first device, or scan it as a QR code.',codeL:'8 words',codeBad:'The code doesn’t match. Check all 8 words.',
   showCodeP:'Enter this code on another device when setting up sync. Don’t send it to anyone.',
   joinT:'This device already has progress',joinP:n=>`Games solved here: ${n}. The other devices have their own progress. What should happen?`,
   joinAdopt:'Take the progress from the other devices',joinAdoptS:'Progress on this device is replaced (best if it got here from a backup code).',
   joinAdd:'Add this device’s progress',joinAddS:'Games solved here are added to the others.',
   done:'Synced',first:'Sync is on.',offT:'Turn off sync?',offP:'Progress on this device stays. The other devices keep theirs.',offYes:'Yes, turn off',offDone:'Sync is off on this device.',
+  qrShow:'Show QR code',qrHide:'Hide QR code',qrHint:'On the other device tap “Scan QR code”. The code hides itself in 2 minutes.',
+  qrScan:'Scan QR code',qrScanP:'On the other device open Settings → Sync → Pairing code → Show QR code, and point the camera at it.',
+  qrStarting:'Starting the camera…',qrLooking:'Looking for the code…',qrNoCam:'The camera isn’t available here. Type the 8 words instead.',
+  qrDenied:'Turtle Sudoku isn’t allowed to use the camera. Allow it in the device settings, or type the 8 words instead.',qrWrong:'This isn’t a Turtle Sudoku pairing code.',
   tokenOk:'The token is saved.',reset:' Sync will be turned off on this device; the other devices keep their progress.',
   e:{offline:'No internet connection. It will try again later.',token:'The token is invalid or has expired. Enter a new one.',
     notfound:'The repository can’t be opened. Check its name and the token’s permissions.',forbidden:'The repository can’t be opened. Check its name and the token’s permissions.',
@@ -1478,20 +1482,33 @@ function syUnion(s,x){if(!x||typeof x!=='object')return;
 /* naposledy změněné vyhrává */
 const SY_LW={game:[s=>s.game,(s,v)=>{s.game=v}],pet:[s=>s.pet.name,(s,v)=>{s.pet.name=v}],wear:[s=>s.pet.wear,(s,v)=>{s.pet.wear=v}],
   player:[s=>s.settings.player,(s,v)=>{s.settings.player=v}],call:[s=>s.settings.call,(s,v)=>{s.settings.call=v}]};
+/* nastavení (kromě velikosti písma, ta se řídí obrazovkou) a jazyk */
+const SY_SET=['notesBtn','sound','vibrate','showErrors','highlight','showTimer','autoClean','symbols','skin'];
+SY_SET.forEach(k=>{SY_LW['set.'+k]=[s=>s.settings[k],(s,v)=>{s.settings[k]=v}]});
+let syLangV=LANG;SY_LW.lang=[()=>syLangV,(s,v)=>{syLangV=v}];
 const syGetLw=(p,s)=>{const v=SY_LW[p][0](s);return v===undefined?null:v};
+/* výchozí (nevyplněná) hodnota nikdy nepřepíše vyplněnou z jiného zařízení */
+function syDef(p,v){const D=defaults();if(p==='game')return v===null;if(p==='pet')return v===D.pet.name;if(p==='wear')return !v||Object.values(v).every(x=>!x);
+  if(p==='player'||p==='call')return !v;if(p==='lang')return v==='cs';if(p.startsWith('set.'))return v===D.settings[p.slice(4)];return false}
 /* u hry se nepočítá ubíhající čas ani historie tahů, jinak by „změnou“ bylo i jen otevření hry */
 const sySig=(p,v)=>JSON.stringify(p==='game'&&v?Object.assign({},v,{time:0,hist:0,fut:0}):v);
 const syClean=(p,v)=>p==='game'&&v?Object.assign({},v,{hist:[],fut:[]}):v;
 function syValid(p,v){
   if(p==='game')return v===null||!!(v&&typeof v==='object'&&(MODES[v.mode]||GAMES[v.mode])&&gameLevels(v.mode)[v.level]&&Array.isArray(v.vals)&&Array.isArray(v.sol)&&Array.isArray(v.puzzle));
   if(p==='wear')return !!(v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>['head','face','neck'].includes(k)&&(v[k]===null||typeof v[k]==='string')));
+  if(p==='lang')return v==='cs'||v==='en';
+  if(p==='set.symbols')return SYMSETS.some(o=>o.id===v);
+  if(p==='set.skin')return v===null||SKINS.some(o=>o.id===v);
+  if(p.startsWith('set.'))return typeof v==='boolean';
   return typeof v==='string'&&v.length<=40&&(p!=='pet'||v.trim().length>0)}
 /* rozehranou hru nejde vyměnit pod rukama, když je otevřené okno (třeba výhra) */
 const syCanSwapGame=()=>!(UI.view==='game'&&!$('#modal').hidden);
-function syMerge(present,fresh){const c=SY,adopt=!c.joined&&c.join==='adopt',now=Date.now()-(c.skew||0),gm0=S.game;
+function syMerge(present,fresh){let look=false;const c=SY,adopt=!c.joined&&c.join==='adopt',now=Date.now()-(c.skew||0),gm0=S.game;
   const old=c.dev;
   /* čas změny: hodiny GitHubu, ale vždy později než všechno, co zařízení u té hodnoty už vidělo (hodiny zařízení se můžou rozcházet) */
-  for(const p in SY_LW){const s=sySig(p,syGetLw(p,S)),l=c.lw[p];if(!l||typeof l!=='object'){c.lw[p]={s,at:1};continue}if(l.s===s)continue;
+  for(const p in SY_LW){const v=syGetLw(p,S),s=sySig(p,v),l=c.lw[p];
+    if(!l||typeof l!=='object'){c.lw[p]={s,at:syDef(p,v)?0:1};continue}
+    if(l.s===s){if(l.at<=1&&syDef(p,v))l.at=0;continue}     /* 1.7: výchozí hodnota měla at 1 a při shodě vyhrávala */
     let seen=syNum(l.at);for(const br in old){const x=old[br]&&old[br].lw&&old[br].lw[p];if(x)seen=Math.max(seen,syNum(x.at))}
     const ch=c.chg&&syNum(c.chg[p]);c.lw[p]={s,at:Math.max(Math.round(ch>0?ch:now),Math.floor(seen)+1)}}
   c.chg={};
@@ -1506,11 +1523,13 @@ function syMerge(present,fresh){const c=SY,adopt=!c.joined&&c.join==='adopt',now
   for(const p in SY_LW){let best=null;
     for(const br in dev){const x=dev[br].lw&&dev[br].lw[p];if(x&&typeof x==='object'&&syNum(x.at)>0&&(!best||x.at>best.at))best=x}
     if(!best||!(adopt||best.at>c.lw[p].at)||!syValid(p,best.v))continue;
-    if(p==='game'&&!syCanSwapGame())continue;
-    SY_LW[p][1](S,syClean(p,JSON.parse(JSON.stringify(best.v))));c.lw[p]={s:sySig(p,syGetLw(p,S)),at:best.at}}
+    if((p==='game'||p==='lang')&&!syCanSwapGame())continue;
+    if(p==='lang'&&UI.view==='game')continue;
+    SY_LW[p][1](S,syClean(p,JSON.parse(JSON.stringify(best.v))));c.lw[p]={s:sySig(p,syGetLw(p,S)),at:best.at};
+    if(p.startsWith('set.'))look=true;if(p==='set.symbols')UI.builtFor=null}
   S.postcards=Array.from({length:Math.floor(Math.max(0,S.stats.solved)/12)},(_,i)=>i%ISLANDS.length);
   tidy();checkAch();
-  return{O,ownT,swapped:S.game!==gm0}}
+  return{O,ownT,swapped:S.game!==gm0||(look&&UI.builtFor===null),look}}
 
 /* ---------- jedna synchronizace ---------- */
 async function syNow(manual){if(!syOn()||syBusy)return false;syBusy=true;const c=SY,P='/repos/'+c.repo;c.lastAttempt=Date.now();sySave();syUI();
@@ -1542,6 +1561,9 @@ async function syNow(manual){if(!syOn()||syBusy)return false;syBusy=true;const c
     c.joined=true;delete c.join;c.lastSync=Date.now();c.lastError=damaged?'damaged':null;ok=true}
   catch(e){console.warn('sync failed',e);c.lastError=e instanceof SyErr?(e.kind==='http'&&e.status?'http:'+e.status:e.kind):'other'}
   finally{syBusy=false;if(SY===c)sySave()}
+  /* jazyk z jiného zařízení: uložit a stránku jednou znovu načíst (jako přepnutí v Nastavení) */
+  if(ok&&syLangV!==LANG){try{localStorage.setItem('zelvi-lang',syLangV);if(syLangV==='cs')localStorage.removeItem('zelvi-en-cache')}catch(e){}save();location.reload();return ok}
+  if(res&&res.look)applyLook();
   if(res)syShow(res.swapped);syUI();
   if(manual)toast(ok?(damaged?SYT.e.damaged:SYT.done):syErrText(c.lastError));
   return ok}
@@ -1582,10 +1604,39 @@ function syBox(){if(!SY)return `<small class="muted">${SYT.intro}</small><button
 function syUI(){const b=$('#sy-box');if(b&&UI.view==='settings')b.innerHTML=syBox()}
 const syErrP=k=>`<p class="errtxt" id="sy-err" ${k?'':'hidden'}>${k?esc(syErrText(k)):''}</p>`;
 function syErr(k){const e=$('#sy-err');if(e){e.textContent=syErrText(k);e.hidden=!k}}
+/* QR kód obsahuje jen „ZELVI:“ + 8 slov (bez tokenu), ukáže se jen na požádání a za 2 minuty se sám skryje */
+const SY_QR='ZELVI:',SY_QR_MS=120000;let syQrT=0,syCam=null;
+const syQrBtn=w=>window.ZSQR?`<div class="sy-qr" id="sy-qr" hidden><div class="sy-qrimg"></div><small class="muted">${SYT.qrHint}</small></div><button class="btn" data-act="syQr" data-w="${w}">${SYT.qrShow}</button>`:'';
+function syQrCode(t){const s=String(t||'').trim();return s.slice(0,SY_QR.length).toUpperCase()===SY_QR?syParseCode(s.slice(SY_QR.length)):null}
+function syScanStop(){const c=syCam;syCam=null;if(!c)return;c.done=true;clearTimeout(c.t);if(c.stream)c.stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}})}
+async function syScan(){syScanStop();
+  modal(`<h2>${SYT.qrScan}</h2><p>${SYT.qrScanP}</p><div class="sy-cam"><video playsinline muted autoplay></video><div class="sy-frame"></div></div>
+    <p class="muted" id="sy-cst">${SYT.qrStarting}</p><div class="btns"><button class="btn big" data-act="syScanBack">${SYT.cancel}</button></div>`);
+  const cam=syCam={done:false,t:0,stream:null,det:null},video=$('#modal video'),st=$('#sy-cst'),cv=document.createElement('canvas');
+  const say=(s,bad)=>{if(cam.done)return;st.textContent=s;st.classList.toggle('errtxt',!!bad)};
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){say(SYT.qrNoCam,1);return}
+  try{cam.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}})}
+  catch(e){console.warn('camera',e);say(e&&(e.name==='NotAllowedError'||e.name==='SecurityError')?SYT.qrDenied:SYT.qrNoCam,1);return}
+  if(cam.done||!document.contains(video)){cam.stream.getTracks().forEach(t=>t.stop());if(syCam===cam)syCam=null;return}
+  try{if('BarcodeDetector' in window&&(await BarcodeDetector.getSupportedFormats()).includes('qr_code'))cam.det=new BarcodeDetector({formats:['qr_code']})}catch(e){cam.det=null}
+  video.srcObject=cam.stream;try{await video.play()}catch(e){}say(SYT.qrLooking);
+  const tick=async()=>{if(cam.done)return;
+    if(!document.contains(video)){if(syCam===cam)syScanStop();else{cam.done=true;cam.stream.getTracks().forEach(t=>t.stop())}return}   /* okno zavřené jinak (Zpět) */
+    if(video.readyState>=2&&video.videoWidth){
+      try{const k=Math.min(1,800/Math.max(video.videoWidth,video.videoHeight)),w=cv.width=Math.round(video.videoWidth*k),h=cv.height=Math.round(video.videoHeight*k),ctx=cv.getContext('2d',{willReadFrequently:true});
+        ctx.drawImage(video,0,0,w,h);let t=null;
+        if(cam.det){try{const r=await cam.det.detect(cv);if(r&&r[0]&&r[0].rawValue)t=r[0].rawValue}catch(e){cam.det=null}}
+        if(t==null&&window.ZSQR)t=ZSQR.decode(ctx.getImageData(0,0,w,h),80);
+        if(t!=null&&!cam.done){const code=syQrCode(t);
+          if(code){syScanStop();syAskCode();$('#sy-code').value=code;const b=$('[data-act=syCodeGo]');ACT.syCodeGo(b.dataset,b);return}
+          say(SYT.qrWrong,1)}}
+      catch(e){console.warn('qr',e)}}
+    cam.t=setTimeout(tick,150)};
+  tick()}
 function syCodeHTML(code){return `<ol class="sy-words">${code.split(' ').map(w=>`<li>${esc(w)}</li>`).join('')}</ol>`}
 const syPend={};
 function syAskCode(){modal(`<h2>${SYT.code}</h2><p>${SYT.askCodeP}</p><div class="field" style="padding:0"><b>${SYT.codeL}</b><textarea class="codebox" id="sy-code" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></div>
-  <p class="errtxt" id="sy-err" hidden></p><div class="btns"><button class="btn primary big" data-act="syCodeGo">${SYT.ok}</button><button class="btn big" data-act="close">${SYT.cancel}</button></div>`)}
+  <p class="errtxt" id="sy-err" hidden></p><div class="btns"><button class="btn primary big" data-act="syCodeGo">${SYT.ok}</button>${window.ZSQR?`<button class="btn big" data-act="syScan">${SYT.qrScan}</button>`:''}<button class="btn big" data-act="close">${SYT.cancel}</button></div>`)}
 function syNewBranch(){return 'zs-'+[...crypto.getRandomValues(new Uint8Array(6))].map(b=>b.toString(16).padStart(2,'0')).join('')}
 /* další zařízení: je tu postup a ostatní zařízení už nějaký mají → zeptat se, jinak převzít */
 async function syJoin(){const p=syPend;let others=0;
@@ -1611,7 +1662,7 @@ Object.assign(ACT,{
     try{const repo=await syCheckRepo(token,$('#sy-repo').value),meta=await syReadMeta(token,repo);Object.assign(syPend,{token,repo,meta});
       if(meta){syAskCode();return}
       syPend.code=syNewCode();
-      modal(`<h2>${SYT.code}</h2><p>${SYT.newCodeP}</p>${syCodeHTML(syPend.code)}${syErrP()}<div class="btns"><button class="btn primary big" data-act="syNewGo">${SYT.saved}</button><button class="btn big" data-act="close">${SYT.cancel}</button></div>`)}
+      modal(`<h2>${SYT.code}</h2><p>${SYT.newCodeP}</p>${syCodeHTML(syPend.code)}${syErrP()}<div class="btns"><button class="btn primary big" data-act="syNewGo">${SYT.saved}</button>${syQrBtn('pend')}<button class="btn big" data-act="close">${SYT.cancel}</button></div>`)}
     catch(e){console.warn('sync setup',e);b.disabled=false;b.textContent=SYT.connect;syErr(e instanceof SyErr?e.kind:'other')}},
   syCodeGo:async(d,b)=>{const code=syParseCode($('#sy-code').value),e=$('#sy-err');if(!code){e.textContent=SYT.codeBad;e.hidden=false;return}
     b.disabled=true;try{const k=await syDerive(code);if(!await syCheckOk(k,syPend.meta.check)){e.textContent=SYT.codeBad;e.hidden=false;b.disabled=false;return}
@@ -1624,7 +1675,14 @@ Object.assign(ACT,{
       await syJoin()}catch(x){console.warn('sync setup',x);b.disabled=false;syErr(x instanceof SyErr?x.kind:'other')}},
   syJoinGo:d=>syStart(d.m==='add'?'add':'adopt'),
   syNow:()=>{syNow(true)},
-  syCode:()=>{if(SY)modal(`<h2>${SYT.code}</h2><p>${SYT.showCodeP}</p>${syCodeHTML(SY.code)}<div class="btns"><button class="btn big" data-act="close">${SYT.close}</button></div>`)},
+  syCode:()=>{if(SY)modal(`<h2>${SYT.code}</h2><p>${SYT.showCodeP}</p>${syCodeHTML(SY.code)}<div class="btns">${syQrBtn('cfg')}<button class="btn big" data-act="close">${SYT.close}</button></div>`)},
+  syQr:(d,b)=>{const box=$('#sy-qr'),code=d.w==='cfg'?SY&&SY.code:syPend.code;if(!box||!code)return;clearTimeout(syQrT);
+    if(!box.hidden){box.hidden=true;box.firstElementChild.innerHTML='';b.textContent=SYT.qrShow;return}
+    try{box.firstElementChild.innerHTML=ZSQR.svg(SY_QR+code.toUpperCase(),'M')}catch(e){console.warn('qr',e);return}
+    box.hidden=false;b.textContent=SYT.qrHide;box.scrollIntoView({block:'nearest'});
+    syQrT=setTimeout(()=>{if(document.contains(box)){box.hidden=true;box.firstElementChild.innerHTML='';b.textContent=SYT.qrShow}},SY_QR_MS)},
+  syScan:()=>{syScan()},
+  syScanBack:()=>{syScanStop();syAskCode()},
   syToken:()=>{modal(`<h2>${SYT.tokenNew}</h2><div class="field" style="padding:0"><b>${SYT.tokenL}</b><input id="sy-tok" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></div>
     ${syErrP()}<div class="btns"><button class="btn primary big" data-act="syTokenGo">${SYT.ok}</button><button class="btn big" data-act="close">${SYT.cancel}</button></div>`)},
   syTokenGo:async(d,b)=>{const token=$('#sy-tok').value.trim();if(!SY||!/^[A-Za-z0-9_]{20,255}$/.test(token)){syErr('token');return}

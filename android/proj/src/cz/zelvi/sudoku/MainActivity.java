@@ -9,7 +9,11 @@ import android.os.Looper;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsetsController;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -18,6 +22,8 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
     private static final String HOME = "file:///android_asset/index.html";
     private WebView web;
+    private static final int REQ_CAMERA = 5;
+    private PermissionRequest camRequest;   // žádost stránky o kameru, čeká na oprávnění Androidu
 
     @Override
     protected void onCreate(Bundle state) {
@@ -38,6 +44,30 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
                 return !r.getUrl().toString().startsWith("file:///android_asset/");
+            }
+        });
+        /* kamera jen pro naskenování párovacího QR kódu: jen vlastní stránka (file://), jen obraz */
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                boolean video = false, other = false;
+                for (String r : request.getResources()) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) video = true; else other = true;
+                }
+                Uri o = request.getOrigin();
+                if (!video || other || (o != null && o.getScheme() != null && !"file".equals(o.getScheme()))) { request.deny(); return; }
+                if (checkSelfPermission("android.permission.CAMERA") == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    return;
+                }
+                if (camRequest != null) camRequest.deny();
+                camRequest = request;
+                requestPermissions(new String[]{"android.permission.CAMERA"}, REQ_CAMERA);
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (camRequest == request) camRequest = null;
             }
         });
         web.addJavascriptInterface(new Bridge(), "ZSAndroid");
@@ -96,6 +126,16 @@ public class MainActivity extends Activity {
                 d.setSystemUiVisibility(f);
             }
         } catch (Exception e) { /* neplatná barva: nechat výchozí */ }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        if (req != REQ_CAMERA) return;
+        PermissionRequest r = camRequest; camRequest = null;
+        if (r == null) return;
+        if (checkSelfPermission("android.permission.CAMERA") == PackageManager.PERMISSION_GRANTED)
+            r.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+        else r.deny();
     }
 
     @Override

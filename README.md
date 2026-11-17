@@ -13,11 +13,11 @@ Velká čísla a tlačítka, česky i anglicky, bez reklam a bez účtu.
 - Postup se ukládá v zařízení (`localStorage`). Přenést ho jde zálohovacím kódem (Nastavení → Záloha postupu).
 - **Synchronizace (nepovinná):** telefon, tablet a počítač si šifrovaně vyměňují postup přes **soukromý** repozitář na GitHubu
   (schránka, např. `zelvi-sudoku-sync`). Nastavení → Synchronizace → token, který smí jen do schránky (Contents: Read and write),
-  a 8 slov párovacího kódu. GitHub vidí jen šifrovaná data (AES-256-GCM, klíč z 8 slov). Token a kód zůstávají v zařízení
+  a 8 slov párovacího kódu (opsat, nebo naskenovat QR kód z už spárovaného zařízení: Nastavení → Synchronizace → Párovací kód → Zobrazit QR kód). GitHub vidí jen šifrovaná data (AES-256-GCM, klíč z 8 slov). Token a kód zůstávají v zařízení
   a nejsou v zálohovacím kódu.
-- Body, vyřešené hry a statistiky se ze všech zařízení sčítají; odznaky, lekce a denní výzvy se spojí; rozehraná hra
-  a jména platí naposledy změněné. Nastavení (písmo, vzhled, zvuky) má každé zařízení svoje.
-- Jediné síťové spojení aplikace je `api.github.com`, a jen když je synchronizace zapnutá.
+- Body, vyřešené hry a statistiky se ze všech zařízení sčítají; odznaky, lekce a denní výzvy se spojí; rozehraná hra,
+  jména, nastavení a jazyk platí naposledy změněné. Jen velikost písma má každé zařízení svoji.
+- Jediné síťové spojení aplikace je `api.github.com`, a jen když je synchronizace zapnutá. Fotoaparát jen při skenování QR kódu.
 
 ## Vývoj
 

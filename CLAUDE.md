@@ -13,6 +13,9 @@
 - Synchronizace (blok „synchronizace“ v `zelvi-sudoku.html`): počítadla se sčítají přes vlastní příspěvek zařízení
   (`own = stav − součet ostatních`, `SY.dev`), proto se stav `S` a `localStorage['zelvi-sync']` vždy ukládají spolu.
   Nové počítadlo ve statistikách = doplnit `SY_CNT` (a regulární výraz `SY_RE_CNT`), nová množina = `sySets`/`syUnion`,
-  nová hodnota „naposledy změněné vyhrává“ = `SY_LW`. Formát ve schránce má `v:1`; při nekompatibilní změně ho zvyš.
-- Testy: `sh testy/spust_testy.sh`; synchronizace `python3 testy/test_synchronizace.py` (napodobený GitHub, ~3,5 min),
+  nová hodnota „naposledy změněné vyhrává“ = `SY_LW` (nastavení přes `SY_SET`, velikost písma `fs` záměrně ne; výchozí
+  hodnota má váhu 0, takže nikdy nepřepíše vyplněnou – `syDef`). Formát ve schránce má `v:1`; při nekompatibilní změně ho zvyš.
+- QR párování: knihovna `window.ZSQR` (samostatný `<script>` před překlady, převzatá z MemoChatu), QR = `ZELVI:` + 8 slov velkými
+  písmeny, bez tokenu. Kamera v APK přes `WebChromeClient.onPermissionRequest` + oprávnění CAMERA (ptá se až při skenování).
+- Testy: `sh testy/spust_testy.sh`; synchronizace `python3 testy/test_synchronizace.py` (napodobený GitHub, ~3,5 min), QR `testy/test_qr.py`,
   APK `android/scripts/test_apk.py`. Skutečné API GitHubu z prostředí netestuj.

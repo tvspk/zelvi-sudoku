@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- jen pro synchronizaci (api.github.com); bez nastavené synchronizace aplikace nic po síti neposílá -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- jen pro naskenování párovacího QR kódu; ptá se až při skenování -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"

@@ -84,7 +84,7 @@ async def cfg(pg):
 async def device(b, init=None, lang=None, name=None):
     ctx = await b.new_context(viewport={'width': 393, 'height': 820})
     pg = await ctx.new_page(); await route(pg); await pg.route('https://api.github.com/**', G.handle)
-    if lang: await pg.add_init_script("localStorage.setItem('zelvi-lang','%s')" % lang)
+    if lang: await pg.add_init_script("localStorage.getItem('zelvi-lang')||localStorage.setItem('zelvi-lang','%s')" % lang)
     if init is not None: await pg.add_init_script("localStorage.getItem('zelvi-sudoku-v1')||localStorage.setItem('zelvi-sudoku-v1',%s)" % json.dumps(json.dumps(init)))
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.on('console', lambda m: errs.append(m.text) if m.type == 'error' and 'fonts' not in m.text and 'ERR_' not in m.text and 'Failed to load resource' not in m.text else None)
@@ -273,11 +273,36 @@ async def main():
     ok('jméno želvičky z B je i na A', (await st(A))['pet']['name'] == 'Bětka')
     await A.click('.tab[data-v=settings]'); await A.click('[data-act=set][data-k=fs][data-v="1.3"]'); await sync(A); await sync(B)
     ok('velikost písma se nesynchronizuje', (await st(B))['settings']['fs'] == 1 and (await st(A))['settings']['fs'] == 1.3)
+    # nastavení (kromě písma) se synchronizuje
+    await A.click('[data-act=set][data-k=symbols][data-v=fruit]'); await A.click('[data-act=toggle][data-k=sound]')
+    await sync(A); await sync(B); sB = await st(B)
+    ok('znaky a zvuky z A jsou i na B', sB['settings']['symbols'] == 'fruit' and sB['settings']['sound'] is False, sB['settings'])
+    await B.click('.tab[data-v=settings]')
+    ok('B: Nastavení ukazuje Ovoce', await B.locator('[data-act=set][data-k=symbols][data-v=fruit].on').count() == 1)
+    await B.click('[data-act=set][data-k=symbols][data-v=num]'); await sync(B); await sync(A)
+    ok('změna zpět na výchozí z B platí i na A', (await st(A))['settings']['symbols'] == 'num')
+    # jméno: zařízení s prázdným jménem z verze 1.7 (výchozí hodnota měla stejnou váhu) jméno dostane
+    await B.evaluate("""()=>{const s=JSON.parse(localStorage.getItem('zelvi-sudoku-v1'));s.settings.player='';localStorage.setItem('zelvi-sudoku-v1',JSON.stringify(s));
+      const c=JSON.parse(localStorage.getItem('zelvi-sync'));c.lw.player={s:'""',at:1};localStorage.setItem('zelvi-sync',JSON.stringify(c))}""")
+    await B.reload(); await asyncio.sleep(0.5); await sync(B)
+    ok('prázdné jméno z 1.7 se doplní z ostatních', (await st(B))['settings']['player'] == 'Jana', (await st(B))['settings']['player'])
+    await sync(A); ok('…a na A se jméno nesmazalo', (await st(A))['settings']['player'] == 'Jana')
+    # jazyk
+    await A.click('.tab[data-v=settings]'); await A.click('[data-act=lang][data-l=en]'); await A.wait_for_load_state(); await asyncio.sleep(0.5)
+    await sync(A); await sync(B)
+    for _ in range(50):
+        await asyncio.sleep(0.1)
+        if await B.evaluate("localStorage.getItem('zelvi-lang')") == 'en': break
+    await asyncio.sleep(0.8)
+    ok('jazyk z A: B se přepne do angličtiny', await B.evaluate("localStorage.getItem('zelvi-lang')") == 'en' and 'Settings' in await B.inner_text('#tabbar'))
+    await A.click('.tab[data-v=settings]'); await A.click('[data-act=lang][data-l=cs]'); await A.wait_for_load_state(); await asyncio.sleep(0.5)
+    await sync(A); await sync(B); await asyncio.sleep(1)
+    ok('…a zpět do češtiny', await B.evaluate("localStorage.getItem('zelvi-lang')") == 'cs' and 'Nastavení' in await B.inner_text('#tabbar'))
 
     # ---------- C: zařízení s vlastním postupem → přičíst ----------
     base = await st(A)
     pre = json.loads(json.dumps(base)); pre['xp'] = 500; pre['stats'] = {**pre['stats'], 'solved': 7, 'days': {'2026-01-05': 7}, 'times': [], 'byKey': {'classic-0': {'n': 7, 'best': 100, 'total': 900}}, 'quick': 0}
-    pre['game'] = None; pre['pet']['name'] = 'Rozárka'
+    pre['game'] = None; pre['pet']['name'] = 'Rozárka'; pre['settings'] = {**pre['settings'], 'player': ''}
     C = await device(b, init=pre)
     await setup(C, TOK_A, code)
     ok('C: zeptá se, co s postupem', await C.locator('[data-act=syJoinGo]').count() == 2 and 'Vyřešených her tady: 7' in await C.inner_text('#modal'))
@@ -290,6 +315,7 @@ async def main():
     ok('C: přičteno (5 + 7 her, body)', sC['stats']['solved'] == 12 and sA['stats']['solved'] == 12 and sC['xp'] == base['xp'] + 500 and tot(sA) == tot(sC), (tot(sA), tot(sC)))
     ok('C: rekord Úplně lehká = lepší ze zařízení', sA['stats']['byKey']['classic-0']['best'] == min(100, base['stats']['byKey']['classic-0']['best']) == sC['stats']['byKey']['classic-0']['best'])
     ok('C: převzal jméno želvičky ze schránky (Bětka)', sC['pet']['name'] == 'Bětka')
+    ok('C: přičtený s prázdným jménem dostal jméno ostatních', sC['settings']['player'] == 'Jana', sC['settings']['player'])
     ok('12 her = pohlednice', len(sA['postcards']) == 1 and len(sC['postcards']) == 1)
     await sync(B); ok('B: 3 zařízení, stejný součet', tot(await st(B)) == tot(sA) and 'Spárovaných zařízení: 3' in await B.inner_text('#sy-box'))
 
@@ -337,8 +363,11 @@ async def main():
     for _ in range(100):
         await asyncio.sleep(0.03)
         if (await cfg(E) or {}).get('lastSync'): break
-    await settle(E)
-    ok('EN: převzal postup a texty anglicky', (await st(E))['stats']['solved'] == 12 and 'Last sync:' in await E.inner_text('#sy-box') and 'Paired devices: 5' in await E.inner_text('#sy-box'))
+    for _ in range(50):
+        await asyncio.sleep(0.1)
+        if await E.evaluate("localStorage.getItem('zelvi-lang')") == 'cs': break
+    await asyncio.sleep(1); await E.click('.tab[data-v=settings]')
+    ok('EN: převzal postup i češtinu (naposledy zvolený jazyk ostatních)', (await st(E))['stats']['solved'] == 12 and await E.evaluate("localStorage.getItem('zelvi-lang')") == 'cs' and 'Spárovaných zařízení: 5' in await E.inner_text('#sy-box'))
 
     # ---------- vypnutí, smazání dat ----------
     await D.click('.tab[data-v=settings]'); await D.click('[data-act=syOffAsk]'); await D.click('[data-act=syOff]')
@@ -370,4 +399,4 @@ async def main():
         if pg.errs: fails.append('konzole ' + nm)
     await b.close()
   print('HOTOVO' if not fails else 'SELHALO: ' + ', '.join(fails))
-asyncio.run(main())
+if __name__ == '__main__': asyncio.run(main())
