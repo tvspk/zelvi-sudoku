@@ -14,7 +14,7 @@
   (`own = stav − součet ostatních`, `SY.dev`), proto se stav `S` a `localStorage['zelvi-sync']` vždy ukládají spolu.
   Nové počítadlo ve statistikách = doplnit `SY_CNT` (a regulární výraz `SY_RE_CNT`), nová množina = `sySets`/`syUnion`,
   nová hodnota „naposledy změněné vyhrává“ = `SY_LW` (nastavení přes `SY_SET`, velikost písma `fs` záměrně ne; výchozí
-  hodnota má váhu 0, takže nikdy nepřepíše vyplněnou – `syDef`). Formát ve schránce má `v:1`; při nekompatibilní změně ho zvyš.
+  hodnota má váhu 0, takže nikdy nepřepíše vyplněnou – `syDef`; u jmen `SY_KEEP` vyplněné vždy přednost před prázdným, i novějším). Formát ve schránce má `v:1`; při nekompatibilní změně ho zvyš.
 - QR párování: knihovna `window.ZSQR` (samostatný `<script>` před překlady, převzatá z MemoChatu), QR = `ZELVI:` + 8 slov velkými
   písmeny, bez tokenu. Kamera v APK přes `WebChromeClient.onPermissionRequest` + oprávnění CAMERA (ptá se až při skenování).
 - Nabídka nové verze (jen APK): jednou za 20 h `GET /repos/tvspk/zelvi-sudoku/releases/latest` (bez tokenu), porovná s

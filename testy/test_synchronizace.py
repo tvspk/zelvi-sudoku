@@ -293,6 +293,17 @@ async def main():
     await B.reload(); await asyncio.sleep(0.5); await sync(B)
     ok('prázdné jméno z 1.7 se doplní z ostatních', (await st(B))['settings']['player'] == 'Jana', (await st(B))['settings']['player'])
     await sync(A); ok('…a na A se jméno nesmazalo', (await st(A))['settings']['player'] == 'Jana')
+    # smazané (prázdné) jméno na jednom zařízení nesmaže jméno na ostatních a doplní se zpět
+    await B.click('.tab[data-v=settings]'); await B.fill('#player-in', ''); await asyncio.sleep(0.3)
+    ok('B: jméno smazané', (await st(B))['settings']['player'] == '')
+    await sync(B); await sync(A); await sync(B)
+    ok('prázdné jméno z B nepřepíše jméno na A', (await st(A))['settings']['player'] == 'Jana')
+    ok('B: jméno se z A doplní zpět', (await st(B))['settings']['player'] == 'Jana')
+    await B.click('.tab[data-v=settings]'); await B.fill('#player-in', 'Jarka'); await asyncio.sleep(0.3)
+    await sync(B); await sync(A)
+    ok('nové vyplněné jméno z B platí i na A', (await st(A))['settings']['player'] == 'Jarka')
+    await A.click('.tab[data-v=settings]'); await A.fill('#player-in', 'Jana'); await asyncio.sleep(0.3); await sync(A); await sync(B)
+    ok('a zpět z A na B', (await st(B))['settings']['player'] == 'Jana')
     # jazyk
     await A.click('.tab[data-v=settings]'); await A.click('[data-act=lang][data-l=en]'); await A.wait_for_load_state(); await asyncio.sleep(0.5)
     await sync(A); await sync(B)

@@ -2925,7 +2925,8 @@ const SY_SET=['notesBtn','sound','vibrate','showErrors','highlight','showTimer',
 SY_SET.forEach(k=>{SY_LW['set.'+k]=[s=>s.settings[k],(s,v)=>{s.settings[k]=v}]});
 let syLangV=LANG;SY_LW.lang=[()=>syLangV,(s,v)=>{syLangV=v}];
 const syGetLw=(p,s)=>{const v=SY_LW[p][0](s);return v===undefined?null:v};
-/* výchozí (nevyplněná) hodnota nikdy nepřepíše vyplněnou z jiného zařízení */
+/* výchozí (nevyplněná) hodnota nikdy nepřepíše vyplněnou z jiného zařízení; u jmen (SY_KEEP) ani když je prázdná novější */
+const SY_KEEP=['player','call','pet'];
 function syDef(p,v){const D=defaults();if(p==='game')return v===null;if(p==='pet')return v===D.pet.name;if(p==='wear')return !v||Object.values(v).every(x=>!x);
   if(p==='player'||p==='call')return !v;if(p==='lang')return v==='cs';if(p.startsWith('set.'))return v===D.settings[p.slice(4)];return false}
 /* u hry se nepočítá ubíhající čas ani historie tahů, jinak by „změnou“ bylo i jen otevření hry */
@@ -2958,9 +2959,14 @@ function syMerge(present,fresh){let look=false;const c=SY,adopt=!c.joined&&c.joi
   sySetCount(S,syAdd(O,syDevSum(dev)));
   S.stats.times=[...syDevTimes(dev),...ownT].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0).slice(-60);
   for(const br in dev)syUnion(S,dev[br].sets);
-  for(const p in SY_LW){let best=null;
-    for(const br in dev){const x=dev[br].lw&&dev[br].lw[p];if(x&&typeof x==='object'&&syNum(x.at)>0&&(!best||x.at>best.at))best=x}
-    if(!best||!(adopt||best.at>c.lw[p].at)||!syValid(p,best.v))continue;
+  for(const p in SY_LW){let best=null;const keep=SY_KEEP.includes(p);
+    for(const br in dev){const x=dev[br].lw&&dev[br].lw[p];if(!x||typeof x!=='object'||!(syNum(x.at)>0)||!syValid(p,x.v))continue;
+      /* jména: vyplněné vždy přednost před prázdným (i novějším), mezi vyplněnými naposledy změněné */
+      if(keep&&best&&!syDef(p,best.v)&&syDef(p,x.v))continue;
+      if(!best||x.at>best.at||(keep&&syDef(p,best.v)&&!syDef(p,x.v)))best=x}
+    if(!best)continue;
+    if(keep){const ld=syDef(p,syGetLw(p,S)),bd=syDef(p,best.v);if(bd&&!ld)continue;if(!(adopt||ld&&!bd||best.at>c.lw[p].at))continue}
+    else if(!(adopt||best.at>c.lw[p].at))continue;
     if((p==='game'||p==='lang')&&!syCanSwapGame())continue;
     if(p==='lang'&&UI.view==='game')continue;
     SY_LW[p][1](S,syClean(p,JSON.parse(JSON.stringify(best.v))));c.lw[p]={s:sySig(p,syGetLw(p,S)),at:best.at};
