@@ -17,5 +17,7 @@
   hodnota má váhu 0, takže nikdy nepřepíše vyplněnou – `syDef`). Formát ve schránce má `v:1`; při nekompatibilní změně ho zvyš.
 - QR párování: knihovna `window.ZSQR` (samostatný `<script>` před překlady, převzatá z MemoChatu), QR = `ZELVI:` + 8 slov velkými
   písmeny, bez tokenu. Kamera v APK přes `WebChromeClient.onPermissionRequest` + oprávnění CAMERA (ptá se až při skenování).
+- Nabídka nové verze (jen APK): jednou za 20 h `GET /repos/tvspk/zelvi-sudoku/releases/latest` (bez tokenu), porovná s
+  `ZSAndroid.version()`, pruh na domovské obrazovce; `ZSAndroid.open` otevře jen adresy vydání tohoto repozitáře. Tag vydání = `v<versionName>`.
 - Testy: `sh testy/spust_testy.sh`; synchronizace `python3 testy/test_synchronizace.py` (napodobený GitHub, ~3,5 min), QR `testy/test_qr.py`,
   APK `android/scripts/test_apk.py`. Skutečné API GitHubu z prostředí netestuj.

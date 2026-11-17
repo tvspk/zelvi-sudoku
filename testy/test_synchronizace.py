@@ -78,9 +78,15 @@ G = GH()
 TOK_A, TOK_B = 'github_pat_' + 'a' * 30, 'github_pat_' + 'b' * 30
 NOW = dt.datetime.now()
 
-async def st(pg): return json.loads(await pg.evaluate("localStorage.getItem('zelvi-sudoku-v1')"))
+async def st(pg): return json.loads(await ev(pg, "localStorage.getItem('zelvi-sudoku-v1')"))
+async def ev(pg, js):
+    for _ in range(50):          # stránka se může právě znovu načítat (přepnutí jazyka ze synchronizace)
+        try: return await pg.evaluate(js)
+        except Exception as e:
+            if 'context was destroyed' not in str(e) and 'navigation' not in str(e): raise
+            await asyncio.sleep(0.1)
 async def cfg(pg):
-    v = await pg.evaluate("localStorage.getItem('zelvi-sync')"); return json.loads(v) if v else None
+    v = await ev(pg, "localStorage.getItem('zelvi-sync')"); return json.loads(v) if v else None
 async def device(b, init=None, lang=None, name=None):
     ctx = await b.new_context(viewport={'width': 393, 'height': 820})
     pg = await ctx.new_page(); await route(pg); await pg.route('https://api.github.com/**', G.handle)
@@ -292,12 +298,12 @@ async def main():
     await sync(A); await sync(B)
     for _ in range(50):
         await asyncio.sleep(0.1)
-        if await B.evaluate("localStorage.getItem('zelvi-lang')") == 'en': break
+        if await ev(B, "localStorage.getItem('zelvi-lang')") == 'en': break
     await asyncio.sleep(0.8)
-    ok('jazyk z A: B se přepne do angličtiny', await B.evaluate("localStorage.getItem('zelvi-lang')") == 'en' and 'Settings' in await B.inner_text('#tabbar'))
+    ok('jazyk z A: B se přepne do angličtiny', await ev(B, "localStorage.getItem('zelvi-lang')") == 'en' and 'Settings' in await B.inner_text('#tabbar'))
     await A.click('.tab[data-v=settings]'); await A.click('[data-act=lang][data-l=cs]'); await A.wait_for_load_state(); await asyncio.sleep(0.5)
     await sync(A); await sync(B); await asyncio.sleep(1)
-    ok('…a zpět do češtiny', await B.evaluate("localStorage.getItem('zelvi-lang')") == 'cs' and 'Nastavení' in await B.inner_text('#tabbar'))
+    ok('…a zpět do češtiny', await ev(B, "localStorage.getItem('zelvi-lang')") == 'cs' and 'Nastavení' in await B.inner_text('#tabbar'))
 
     # ---------- C: zařízení s vlastním postupem → přičíst ----------
     base = await st(A)
@@ -365,9 +371,9 @@ async def main():
         if (await cfg(E) or {}).get('lastSync'): break
     for _ in range(50):
         await asyncio.sleep(0.1)
-        if await E.evaluate("localStorage.getItem('zelvi-lang')") == 'cs': break
+        if await ev(E, "localStorage.getItem('zelvi-lang')") == 'cs': break
     await asyncio.sleep(1); await E.click('.tab[data-v=settings]')
-    ok('EN: převzal postup i češtinu (naposledy zvolený jazyk ostatních)', (await st(E))['stats']['solved'] == 12 and await E.evaluate("localStorage.getItem('zelvi-lang')") == 'cs' and 'Spárovaných zařízení: 5' in await E.inner_text('#sy-box'))
+    ok('EN: převzal postup i češtinu (naposledy zvolený jazyk ostatních)', (await st(E))['stats']['solved'] == 12 and await ev(E, "localStorage.getItem('zelvi-lang')") == 'cs' and 'Spárovaných zařízení: 5' in await E.inner_text('#sy-box'))
 
     # ---------- vypnutí, smazání dat ----------
     await D.click('.tab[data-v=settings]'); await D.click('[data-act=syOffAsk]'); await D.click('[data-act=syOff]')

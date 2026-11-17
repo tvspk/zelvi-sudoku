@@ -26,4 +26,5 @@ python3 test_zen_zruseni.py
 python3 test_jazyky.py
 python3 test_synchronizace.py
 python3 test_qr.py
+python3 test_aktualizace.py
 python3 test_nahodne.py 3000 1,2,3,4,5

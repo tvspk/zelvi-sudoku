@@ -17,7 +17,8 @@ Velká čísla a tlačítka, česky i anglicky, bez reklam a bez účtu.
   a nejsou v zálohovacím kódu.
 - Body, vyřešené hry a statistiky se ze všech zařízení sčítají; odznaky, lekce a denní výzvy se spojí; rozehraná hra,
   jména, nastavení a jazyk platí naposledy změněné. Jen velikost písma má každé zařízení svoji.
-- Jediné síťové spojení aplikace je `api.github.com`, a jen když je synchronizace zapnutá. Fotoaparát jen při skenování QR kódu.
+- Jediné síťové spojení aplikace je `api.github.com`, a jen když je synchronizace zapnutá. Fotoaparát jen při skenování QR kódu. APK se jednou denně
+  podívá na poslední vydání na GitHubu (veřejný údaj, bez tokenu) a nabídne stažení nové verze.
 
 ## Vývoj
 

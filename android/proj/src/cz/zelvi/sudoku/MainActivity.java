@@ -78,6 +78,25 @@ public class MainActivity extends Activity {
 
     /** Volá se z JS (zsBars): barva stavové a navigační lišty podle vzhledu. */
     private class Bridge {
+        /** Verze aplikace (versionName) pro kontrolu nové verze. */
+        @JavascriptInterface
+        public String version() {
+            try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+            catch (Exception e) { return ""; }
+        }
+
+        /** Otevře stažení nové verze v prohlížeči; jen vydání tohoto projektu na GitHubu. */
+        @JavascriptInterface
+        public void open(final String url) {
+            if (url == null || !url.startsWith("https://github.com/tvspk/zelvi-sudoku/releases/")) return;
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url))); }
+                    catch (Exception e) { /* žádný prohlížeč */ }
+                }
+            });
+        }
+
         @JavascriptInterface
         public void setBars(final String status, final String nav) {
             runOnUiThread(new Runnable() {
