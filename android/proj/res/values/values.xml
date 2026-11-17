@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_bg">#BCE6EE</color>
+    <color name="start_bg">#E2F2EF</color>
+    <string name="app_name">Želví sudoku</string>
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowBackground">@color/start_bg</item>
+        <item name="android:statusBarColor">@color/start_bg</item>
+        <item name="android:navigationBarColor">@color/start_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
