@@ -3,3 +3,4 @@ p.html
 app.js
 *.png
 __pycache__/
+app_en.js
